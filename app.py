@@ -57,19 +57,19 @@ class MainMenu(ttk.Frame):
         ttk.Frame.__init__(self,parent)
         controller.title('Main Menu')
 
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(Toc, self)).grid(row=0)
+        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=0)
         ttk.Button(self, text="Exit", command=controller.exit_app).grid(row=1)
 
-class Toc(ttk.Frame):
+class TicketList(ttk.Frame):
     def __init__(self, parent, controller):
         ttk.Frame.__init__(self, parent)
-        controller.title('Toc')
+        controller.title('Ticket List')
         self.controller = controller
 
         self.field_names = ('No', 'Date', 'Time', 'Informed by', 'Description')
 
         self.record_tree = self.create_table()
-        ttk.Button(self, text="Add", command=lambda: controller.show_window(AddTicket, self)).grid(row=1, column=0)
+        ttk.Button(self, text="New Ticket", command=lambda: controller.show_window(AddTicket, self)).grid(row=1, column=0)
         ttk.Button(self, text="Main Menu", command=lambda: controller.show_window(MainMenu, self)).grid(row=1, column=1)
 
         self.update_table()
@@ -104,8 +104,12 @@ class BaseTicket(ttk.Frame):
         record = []
         for row, field in enumerate(self.field_names):
             ttk.Label(self, text=field[0]).grid(row=row, column=0)
-            record.append(field[1](self) if len(field) == 2 else field[1](self, **field[2]))
-            record[-1].grid(row=row, column=1)
+            if len(field) == 3 and type(field[2]) == tuple:
+                field[1](self, *field[2]).grid(row=row, column=1)
+                record.append(field[2][0])
+            else:
+                record.append(field[1](self) if len(field) == 2 else field[1](self, **field[2]))
+                record[-1].grid(row=row, column=1)
         return record
 
     def get_record(self):
@@ -120,14 +124,14 @@ class AddTicket(BaseTicket):
         self.field_names = (
             ('Date', Calendar, {'settoday': True, 'monthsoncalendar': False}),
             ('Time', ttk.Entry, {'state': 'disabled'}),
-            ('Informed by', ttk.Entry),
+            ('Informed by', ttk.OptionMenu, (tk.StringVar(controller), 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT')),
             ('Description', ttk.Entry),
         )
 
         self.record = self.build_form()
 
         ttk.Button(self, text="Add", command=self.add_record).grid(row=4, column=0)
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(Toc, self)).grid(row=4, column=1)
+        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=4, column=1)
 
         self.show_current_time()
 
@@ -139,10 +143,14 @@ class AddTicket(BaseTicket):
         self.time_update = self.record[1].after(60000, self.show_current_time)
 
     def add_record(self):
-        self.record[1].after_cancel(self.time_update)
-        self.time_update = None
-        database.add_record(self.get_record())
-        self.controller.show_window(Toc, self)
+        record = self.get_record()
+        if record[2] == 'Select a option':
+            messagebox.showerror("Error", 'Please select an option for informed by')
+        else:
+            self.record[1].after_cancel(self.time_update)
+            self.time_update = None
+            database.add_record(record)
+            self.controller.show_window(TicketList, self)
 
 class UpdateTicket(BaseTicket):
     def __init__(self, parent, controller, data):
@@ -164,11 +172,11 @@ class UpdateTicket(BaseTicket):
             self.record[x].insert('end', data[x+1])
 
         ttk.Button(self, text="Update", command=lambda: self.update_record(data[0])).grid(row=4, column=0)
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(Toc, self)).grid(row=4, column=1)
+        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=4, column=1)
 
     def update_record(self, number):
         database.update_record(number, self.get_record())
-        self.controller.show_window(Toc, self)
+        self.controller.show_window(TicketList, self)
 
 if __name__ == "__main__":
     app = App()
