@@ -4,6 +4,7 @@ from tkinter import messagebox
 from datetime import datetime
 
 import database
+import constants
 from calendar_radiobutton import Calendar
 
 class App(tk.Tk):
@@ -57,8 +58,9 @@ class MainMenu(ttk.Frame):
         ttk.Frame.__init__(self,parent)
         controller.title('Main Menu')
 
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=0)
-        ttk.Button(self, text="Exit", command=controller.exit_app).grid(row=1)
+        ttk.Button(self, text="Open Tickets List", command=lambda: controller.show_window(TicketList, self)).grid(row=0)
+        ttk.Button(self, text="Create New Ticket", command=lambda: controller.show_window(AddTicket, self)).grid(row=1)
+        ttk.Button(self, text="Exit", command=controller.exit_app).grid(row=2)
 
 class TicketList(ttk.Frame):
     def __init__(self, parent, controller):
@@ -66,10 +68,8 @@ class TicketList(ttk.Frame):
         controller.title('Open tickets list')
         self.controller = controller
 
-        self.field_names = ('No', 'Date', 'Time', 'Informed by', 'Description', '2G', '3G', 'LTE', 'Wifi', 'Fault responsible', 'Fault details', 'Fault cause')
-
         self.record_tree = self.create_table()
-        ttk.Button(self, text="New Ticket", command=lambda: controller.show_window(AddTicket, self)).grid(row=1, column=0)
+        ttk.Button(self, text="Create New Ticket", command=lambda: controller.show_window(AddTicket, self)).grid(row=1, column=0)
         ttk.Button(self, text="Main Menu", command=lambda: controller.show_window(MainMenu, self)).grid(row=1, column=1)
 
         self.update_table()
@@ -77,9 +77,9 @@ class TicketList(ttk.Frame):
         self.record_tree.bind('<Double-1>', self.open_update_ticket)
 
     def create_table(self):
-        record_tree = ttk.Treeview(self, columns=self.field_names, show="headings")
+        record_tree = ttk.Treeview(self, columns=constants.TABLE_HEADERS, show="headings")
         record_tree.grid(row=0, columnspan=2)
-        for column in self.field_names:
+        for column in constants.TABLE_HEADERS:
             record_tree.heading(column, text=column)
         return record_tree
 
@@ -94,24 +94,26 @@ class TicketList(ttk.Frame):
 
     def update_table(self):
         self.record_tree.delete(*self.record_tree.get_children())
-        for ticket in database.get_all_records():
+        for ticket in database.get_all_records('Open'):
             self.record_tree.insert('', 'end', values=ticket)
 
 class BaseTicket(ttk.Frame):
-    def __init__(self, parent, controller):
+    def __init__(self, parent, controller, title):
         ttk.Frame.__init__(self, parent)
         self.controller = controller
+        self.controller.title(title)
+        self.record = self.build_form()
 
     def build_form(self):
         record = []
         for row, field in enumerate(self.field_names):
             ttk.Label(self, text=field[0]).grid(row=row, column=0)
             if len(field) == 3 and type(field[2]) == tuple:
-                if field[2][0] == True:
+                if field[2][0] == 'kwargs':
                     field[1](self, **field[2][1]).grid(row=row, column=1)
                 else:
-                    field[1](self, *field[2]).grid(row=row, column=1)
-                record.append(field[2][1]['variable'] if field[2][0] == True else field[2][0])
+                    field[1](self, *field[2][1]).grid(row=row, column=1)
+                record.append(field[2][1]['variable'] if field[2][0] == 'kwargs' else field[2][1][0])
             else:
                 record.append(field[1](self) if len(field) == 2 else field[1](self, **field[2]))
                 record[-1].grid(row=row, column=1)
@@ -121,29 +123,25 @@ class BaseTicket(ttk.Frame):
         return ['' if record[x] in ['Select a option'] else record[x] for x in range(len(record))]
 
     def get_record(self):
-        return [self.record[0].date_str] + [field.get() for field in self.record[1:]]
+        return self.clean_record([self.record[0].date_str] + [field.get() for field in self.record[1:]])
 
 
 class AddTicket(BaseTicket):
     def __init__(self, parent, controller):
-        BaseTicket.__init__(self, parent, controller)
-        controller.title('Add Ticket')
-
         self.field_names = (
             ('Date', Calendar, {'settoday': True, 'monthsoncalendar': False}),
             ('Time', ttk.Entry, {'state': 'disabled'}),
-            ('Informed by', ttk.OptionMenu, (tk.StringVar(controller), 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT')),
+            ('Informed by', ttk.OptionMenu, ('args', (tk.StringVar(), 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT'))),
             ('Description', ttk.Entry),
             ('2G', ttk.Entry),
             ('3G', ttk.Entry),
             ('LTE', ttk.Entry),
             ('Wifi', ttk.Entry),
         )
+        BaseTicket.__init__(self, parent, controller, 'Create new ticket')
 
-        self.record = self.build_form()
-
-        ttk.Button(self, text="Add", command=self.add_record).grid(row=8, column=0)
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=8, column=1)
+        ttk.Button(self, text="Create", command=self.add_record).grid(row=8, column=0)
+        ttk.Button(self, text="Open Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=8, column=1)
 
         self.show_current_time()
 
@@ -157,43 +155,39 @@ class AddTicket(BaseTicket):
     def add_record(self):
         self.record[1].after_cancel(self.time_update)
         self.time_update = None
-        database.add_record(self.clean_record(self.get_record()))
+        database.add_record(self.get_record())
         self.controller.show_window(TicketList, self)
 
 class UpdateTicket(BaseTicket):
     def __init__(self, parent, controller, data):
-        BaseTicket.__init__(self, parent, controller)
-        controller.title('Update Ticket')
-
         date = datetime.strptime(data[1], '%Y-%m-%d')
-        ticket_status = tk.StringVar(controller)
+        ticket_status = tk.StringVar()
         ticket_status.set('Open')
 
         self.field_names = (
             ('Date', Calendar, {'day': date.day, 'year': date.year, 'month': date.month, 'monthsoncalendar': False}),
             ('Time', ttk.Entry),
-            ('Informed by', ttk.OptionMenu, (tk.StringVar(controller), data[3] or 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT')),
+            ('Informed by', ttk.OptionMenu, ('args', (tk.StringVar(), data[3] or 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT'))),
             ('Description', ttk.Entry),
             ('2G', ttk.Entry),
             ('3G', ttk.Entry),
             ('LTE', ttk.Entry),
             ('Wifi', ttk.Entry),
-            ('Fault responsible', ttk.OptionMenu, (tk.StringVar(controller), data[9] or 'Select a option', 'TxOP', 'Regional Op', 'SLT', 'Dialog')),
+            ('Fault responsible', ttk.OptionMenu, ('args', (tk.StringVar(), data[9] or 'Select a option', 'TxOP', 'Regional Op', 'SLT', 'Dialog'))),
             ('Fault details', ttk.Entry),
-            ('Fault cause', ttk.OptionMenu, (tk.StringVar(controller), data[11] or 'Select a option', 'Annexure')),
-            ('Close ticket', ttk.Checkbutton, (True, {'text': '', 'variable': ticket_status, 'onvalue': 'Closed', 'offvalue': 'Open'}))
+            ('Fault cause', ttk.OptionMenu, ('args', (tk.StringVar(), data[11] or 'Select a option', 'Annexure'))),
+            ('Close ticket', ttk.Checkbutton, ('kwargs', {'text': '', 'variable': ticket_status, 'onvalue': 'Closed', 'offvalue': 'Open'}))
         )
-
-        self.record = self.build_form()
+        BaseTicket.__init__(self, parent, controller, 'Update ticket')
 
         for x in [n for n in range(2, len(self.field_names)) if n not in [3, 9, 11, 12]]:
             self.record[x-1].insert('end', data[x])
 
-        ttk.Button(self, text="Update", command=lambda: self.update_record(data[0])).grid(row=12, column=0)
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=12, column=1)
+        ttk.Button(self, text="Update Ticket", command=lambda: self.update_record(data[0])).grid(row=12, column=0)
+        ttk.Button(self, text="Open Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=12, column=1)
 
     def update_record(self, number):
-        database.update_record(number, self.clean_record(self.get_record()))
+        database.update_record(number, self.get_record())
         self.controller.show_window(TicketList, self)
 
 if __name__ == "__main__":

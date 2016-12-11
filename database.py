@@ -46,11 +46,11 @@ def query(cursor, query_string, *args):
     cursor.execute(query_string, *args)
     return cursor.fetchall()
 
-def get_all_records():
+def get_all_records(state):
     results = query(
         '''
-        SELECT * FROM `tickets` WHERE `STATUS`='Open'
-        '''
+        SELECT * FROM `tickets` WHERE `STATUS`='{}'
+        '''.format(state)
     )
     return [tuple(field or '' for field in row[:-1]) for row in results]
 
