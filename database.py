@@ -24,8 +24,15 @@ def initialize_db(cursor):
             `TICKET_NO`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
             `TICKET_DATE`	TEXT NOT NULL,
             `TICKET_TIME`	TEXT NOT NULL,
-            `TICKET_INFORMED_BY`	TEXT NOT NULL,
-            `TICKET_DESCRIPTION`	TEXT NOT NULL
+            `TICKET_INFORMED_BY`	TEXT NULL,
+            `TICKET_DESCRIPTION`	TEXT NULL,
+            `TWO_G`	INTEGER NULL,
+            `THREE_G`	INTEGER NULL,
+            `LTE`	INTEGER NULL,
+            `WIFI`	INTEGER NULL,
+            `FAULT_RESPONSIBLE`	TEXT NULL,
+            `FAULT_DETAILS`	TEXT NULL,
+            `FAULT_CAUSE`	TEXT NULL
         )
         '''
     )
@@ -39,11 +46,12 @@ def query(cursor, query_string, *args):
     return cursor.fetchall()
 
 def get_all_records():
-    return query(
+    results = query(
         '''
         SELECT * FROM `tickets`
         '''
     )
+    return [tuple(field or '' for field in row) for row in results]
 
 def get_record(number):
     return query(
@@ -55,7 +63,7 @@ def get_record(number):
 def add_record(record):
     query(
         '''
-        INSERT INTO `tickets` (`TICKET_DATE`, `TICKET_TIME`, `TICKET_INFORMED_BY`, `TICKET_DESCRIPTION`) VALUES(?,?,?,?)
+        INSERT INTO `tickets` (`TICKET_DATE`, `TICKET_TIME`, `TICKET_INFORMED_BY`, `TICKET_DESCRIPTION`, `TWO_G`, `THREE_G`, `LTE`, `WIFI`) VALUES(?,?,?,?,?,?,?,?)
         ''',
         record
     )
@@ -63,7 +71,7 @@ def add_record(record):
 def update_record(number, record):
     query(
         '''
-        UPDATE `tickets` SET TICKET_DATE=?, TICKET_TIME=?, TICKET_INFORMED_BY=?, TICKET_DESCRIPTION=? WHERE `TICKET_NO`={}
+        UPDATE `tickets` SET TICKET_DATE=?, TICKET_TIME=?, TICKET_INFORMED_BY=?, TICKET_DESCRIPTION=?, TWO_G=?, THREE_G=?, LTE=?, WIFI=?, FAULT_RESPONSIBLE=?, FAULT_DETAILS=?, FAULT_CAUSE=? WHERE `TICKET_NO`={}
         '''.format(number),
         record
     )

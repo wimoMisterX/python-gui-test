@@ -66,7 +66,7 @@ class TicketList(ttk.Frame):
         controller.title('Ticket List')
         self.controller = controller
 
-        self.field_names = ('No', 'Date', 'Time', 'Informed by', 'Description')
+        self.field_names = ('No', 'Date', 'Time', 'Informed by', 'Description', '2G', '3G', 'LTE', 'Wifi', 'Fault responsible', 'Fault details', 'Fault cause')
 
         self.record_tree = self.create_table()
         ttk.Button(self, text="New Ticket", command=lambda: controller.show_window(AddTicket, self)).grid(row=1, column=0)
@@ -84,11 +84,13 @@ class TicketList(ttk.Frame):
         return record_tree
 
     def open_update_ticket(self, event):
-        self.controller.show_window(
-            UpdateTicket,
-            self,
-            self.record_tree.item(self.record_tree.identify_row(event.y))['values']
-        )
+        record = self.record_tree.item(self.record_tree.identify_row(event.y))['values']
+        if record:
+            self.controller.show_window(
+                UpdateTicket,
+                self,
+                record
+            )
 
     def update_table(self):
         self.record_tree.delete(*self.record_tree.get_children())
@@ -112,6 +114,9 @@ class BaseTicket(ttk.Frame):
                 record[-1].grid(row=row, column=1)
         return record
 
+    def clean_record(self, record):
+        return ['' if record[x] in ['Select a option'] else record[x] for x in range(len(record))]
+
     def get_record(self):
         return [self.record[0].date_str] + [field.get() for field in self.record[1:]]
 
@@ -126,12 +131,16 @@ class AddTicket(BaseTicket):
             ('Time', ttk.Entry, {'state': 'disabled'}),
             ('Informed by', ttk.OptionMenu, (tk.StringVar(controller), 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT')),
             ('Description', ttk.Entry),
+            ('2G', ttk.Entry),
+            ('3G', ttk.Entry),
+            ('LTE', ttk.Entry),
+            ('Wifi', ttk.Entry),
         )
 
         self.record = self.build_form()
 
-        ttk.Button(self, text="Add", command=self.add_record).grid(row=4, column=0)
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=4, column=1)
+        ttk.Button(self, text="Add", command=self.add_record).grid(row=8, column=0)
+        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=8, column=1)
 
         self.show_current_time()
 
@@ -143,14 +152,10 @@ class AddTicket(BaseTicket):
         self.time_update = self.record[1].after(60000, self.show_current_time)
 
     def add_record(self):
-        record = self.get_record()
-        if record[2] == 'Select a option':
-            messagebox.showerror("Error", 'Please select an option for informed by')
-        else:
-            self.record[1].after_cancel(self.time_update)
-            self.time_update = None
-            database.add_record(record)
-            self.controller.show_window(TicketList, self)
+        self.record[1].after_cancel(self.time_update)
+        self.time_update = None
+        database.add_record(self.clean_record(self.get_record()))
+        self.controller.show_window(TicketList, self)
 
 class UpdateTicket(BaseTicket):
     def __init__(self, parent, controller, data):
@@ -162,20 +167,27 @@ class UpdateTicket(BaseTicket):
         self.field_names = (
             ('Date', Calendar, {'day': date.day, 'year': date.year, 'month': date.month, 'monthsoncalendar': False}),
             ('Time', ttk.Entry),
-            ('Informed by', ttk.Entry),
+            ('Informed by', ttk.OptionMenu, (tk.StringVar(controller), data[3] or 'Select a option', 'INOC', 'Regional OP', 'Dialog', 'SLT')),
             ('Description', ttk.Entry),
+            ('2G', ttk.Entry),
+            ('3G', ttk.Entry),
+            ('LTE', ttk.Entry),
+            ('Wifi', ttk.Entry),
+            ('Fault responsible', ttk.OptionMenu, (tk.StringVar(controller), data[9] or 'Select a option', 'TxOP', 'Regional Op', 'SLT', 'Dialog')),
+            ('Fault details', ttk.Entry),
+            ('Fault cause', ttk.OptionMenu, (tk.StringVar(controller), data[11] or 'Select a option', 'Annexure'))
         )
 
         self.record = self.build_form()
 
-        for x in range(1, len(self.field_names)):
-            self.record[x].insert('end', data[x+1])
+        for x in [n for n in range(2, len(self.field_names)) if n not in [3, 9, 11]]:
+            self.record[x-1].insert('end', data[x])
 
-        ttk.Button(self, text="Update", command=lambda: self.update_record(data[0])).grid(row=4, column=0)
-        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=4, column=1)
+        ttk.Button(self, text="Update", command=lambda: self.update_record(data[0])).grid(row=12, column=0)
+        ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(TicketList, self)).grid(row=12, column=1)
 
     def update_record(self, number):
-        database.update_record(number, self.get_record())
+        database.update_record(number, self.clean_record(self.get_record()))
         self.controller.show_window(TicketList, self)
 
 if __name__ == "__main__":
