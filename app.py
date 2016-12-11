@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 from datetime import datetime
 
 import database
@@ -31,26 +32,30 @@ class App(tk.Tk):
 class Login(ttk.Frame):
     def __init__(self, parent, controller):
         ttk.Frame.__init__(self,parent)
+        controller.title('Login')
         self.controller = controller
 
         ttk.Label(self, text='Username').grid(row=0, column=0)
         ttk.Label(self, text='Password').grid(row=1, column=0)
 
-        self.username = tk.StringVar()
-        self.password = tk.StringVar()
-
-        ttk.Entry(self, textvariable=self.username).grid(row=0, column=1)
-        ttk.Entry(self, textvariable=self.password).grid(row=1, column=1)
+        self.username = ttk.Entry(self)
+        self.password = ttk.Entry(self)
+        self.username.grid(row=0, column=1)
+        self.password.grid(row=1, column=1)
 
         ttk.Button(self, text="Exit", command=self.controller.exit_app).grid(row=2, column=0)
         ttk.Button(self, text="Login", command=self.sign_in).grid(row=2, column=1)
 
     def sign_in(self):
-        self.controller.show_window(MainMenu, self)
+        if self.username.get() == 'admin' and self.password.get() == 'admin':
+            self.controller.show_window(MainMenu, self)
+        else:
+            messagebox.showerror("Error", "Invalid username or password")
 
 class MainMenu(ttk.Frame):
     def __init__(self, parent, controller):
         ttk.Frame.__init__(self,parent)
+        controller.title('Main Menu')
 
         ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(Toc, self)).grid(row=0)
         ttk.Button(self, text="Exit", command=controller.exit_app).grid(row=1)
@@ -58,6 +63,7 @@ class MainMenu(ttk.Frame):
 class Toc(ttk.Frame):
     def __init__(self, parent, controller):
         ttk.Frame.__init__(self, parent)
+        controller.title('Toc')
         self.controller = controller
 
         self.field_names = ('No', 'Date', 'Time', 'Informed by', 'Description')
@@ -72,7 +78,7 @@ class Toc(ttk.Frame):
 
     def create_table(self):
         record_tree = ttk.Treeview(self, columns=self.field_names, show="headings")
-        record_tree.grid(row=0)
+        record_tree.grid(row=0, columnspan=2)
         for column in self.field_names:
             record_tree.heading(column, text=column)
         return record_tree
@@ -109,6 +115,7 @@ class BaseTicket(ttk.Frame):
 class AddTicket(BaseTicket):
     def __init__(self, parent, controller):
         BaseTicket.__init__(self, parent, controller)
+        controller.title('Add Ticket')
 
         self.field_names = (
             ('Date', Calendar, {'settoday': True, 'monthsoncalendar': False}),
@@ -129,6 +136,7 @@ class AddTicket(BaseTicket):
 class UpdateTicket(BaseTicket):
     def __init__(self, parent, controller, data):
         BaseTicket.__init__(self, parent, controller)
+        controller.title('Update Ticket')
 
         date = datetime.strptime(data[1], '%Y-%m-%d')
 
