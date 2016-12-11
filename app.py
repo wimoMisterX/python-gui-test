@@ -63,7 +63,7 @@ class MainMenu(ttk.Frame):
 class TicketList(ttk.Frame):
     def __init__(self, parent, controller):
         ttk.Frame.__init__(self, parent)
-        controller.title('Ticket List')
+        controller.title('Open tickets list')
         self.controller = controller
 
         self.field_names = ('No', 'Date', 'Time', 'Informed by', 'Description', '2G', '3G', 'LTE', 'Wifi', 'Fault responsible', 'Fault details', 'Fault cause')
@@ -107,8 +107,11 @@ class BaseTicket(ttk.Frame):
         for row, field in enumerate(self.field_names):
             ttk.Label(self, text=field[0]).grid(row=row, column=0)
             if len(field) == 3 and type(field[2]) == tuple:
-                field[1](self, *field[2]).grid(row=row, column=1)
-                record.append(field[2][0])
+                if field[2][0] == True:
+                    field[1](self, **field[2][1]).grid(row=row, column=1)
+                else:
+                    field[1](self, *field[2]).grid(row=row, column=1)
+                record.append(field[2][1]['variable'] if field[2][0] == True else field[2][0])
             else:
                 record.append(field[1](self) if len(field) == 2 else field[1](self, **field[2]))
                 record[-1].grid(row=row, column=1)
@@ -163,6 +166,8 @@ class UpdateTicket(BaseTicket):
         controller.title('Update Ticket')
 
         date = datetime.strptime(data[1], '%Y-%m-%d')
+        ticket_status = tk.StringVar(controller)
+        ticket_status.set('Open')
 
         self.field_names = (
             ('Date', Calendar, {'day': date.day, 'year': date.year, 'month': date.month, 'monthsoncalendar': False}),
@@ -175,12 +180,13 @@ class UpdateTicket(BaseTicket):
             ('Wifi', ttk.Entry),
             ('Fault responsible', ttk.OptionMenu, (tk.StringVar(controller), data[9] or 'Select a option', 'TxOP', 'Regional Op', 'SLT', 'Dialog')),
             ('Fault details', ttk.Entry),
-            ('Fault cause', ttk.OptionMenu, (tk.StringVar(controller), data[11] or 'Select a option', 'Annexure'))
+            ('Fault cause', ttk.OptionMenu, (tk.StringVar(controller), data[11] or 'Select a option', 'Annexure')),
+            ('Close ticket', ttk.Checkbutton, (True, {'text': '', 'variable': ticket_status, 'onvalue': 'Closed', 'offvalue': 'Open'}))
         )
 
         self.record = self.build_form()
 
-        for x in [n for n in range(2, len(self.field_names)) if n not in [3, 9, 11]]:
+        for x in [n for n in range(2, len(self.field_names)) if n not in [3, 9, 11, 12]]:
             self.record[x-1].insert('end', data[x])
 
         ttk.Button(self, text="Update", command=lambda: self.update_record(data[0])).grid(row=12, column=0)

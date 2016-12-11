@@ -22,17 +22,18 @@ def initialize_db(cursor):
         '''
         CREATE TABLE IF NOT EXISTS `tickets` (
             `TICKET_NO`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-            `TICKET_DATE`	TEXT NOT NULL,
-            `TICKET_TIME`	TEXT NOT NULL,
-            `TICKET_INFORMED_BY`	TEXT NULL,
-            `TICKET_DESCRIPTION`	TEXT NULL,
-            `TWO_G`	INTEGER NULL,
-            `THREE_G`	INTEGER NULL,
-            `LTE`	INTEGER NULL,
-            `WIFI`	INTEGER NULL,
+            `TICKET_DATE` TEXT NOT NULL,
+            `TICKET_TIME` TEXT NOT NULL,
+            `TICKET_INFORMED_BY` TEXT NULL,
+            `TICKET_DESCRIPTION` TEXT NULL,
+            `TWO_G` INTEGER NULL,
+            `THREE_G` INTEGER NULL,
+            `LTE` INTEGER NULL,
+            `WIFI` INTEGER NULL,
             `FAULT_RESPONSIBLE`	TEXT NULL,
-            `FAULT_DETAILS`	TEXT NULL,
-            `FAULT_CAUSE`	TEXT NULL
+            `FAULT_DETAILS` TEXT NULL,
+            `FAULT_CAUSE` TEXT NULL,
+            `STATUS` TEXT NOT NULL DEFAULT 'Open'
         )
         '''
     )
@@ -48,10 +49,10 @@ def query(cursor, query_string, *args):
 def get_all_records():
     results = query(
         '''
-        SELECT * FROM `tickets`
+        SELECT * FROM `tickets` WHERE `STATUS`='Open'
         '''
     )
-    return [tuple(field or '' for field in row) for row in results]
+    return [tuple(field or '' for field in row[:-1]) for row in results]
 
 def get_record(number):
     return query(
@@ -71,7 +72,7 @@ def add_record(record):
 def update_record(number, record):
     query(
         '''
-        UPDATE `tickets` SET TICKET_DATE=?, TICKET_TIME=?, TICKET_INFORMED_BY=?, TICKET_DESCRIPTION=?, TWO_G=?, THREE_G=?, LTE=?, WIFI=?, FAULT_RESPONSIBLE=?, FAULT_DETAILS=?, FAULT_CAUSE=? WHERE `TICKET_NO`={}
+        UPDATE `tickets` SET TICKET_DATE=?, TICKET_TIME=?, TICKET_INFORMED_BY=?, TICKET_DESCRIPTION=?, TWO_G=?, THREE_G=?, LTE=?, WIFI=?, FAULT_RESPONSIBLE=?, FAULT_DETAILS=?, FAULT_CAUSE=?, STATUS=? WHERE `TICKET_NO`={}
         '''.format(number),
         record
     )
