@@ -119,7 +119,7 @@ class AddTicket(BaseTicket):
 
         self.field_names = (
             ('Date', Calendar, {'settoday': True, 'monthsoncalendar': False}),
-            ('Time', ttk.Entry),
+            ('Time', ttk.Entry, {'state': 'disabled'}),
             ('Informed by', ttk.Entry),
             ('Description', ttk.Entry),
         )
@@ -129,7 +129,18 @@ class AddTicket(BaseTicket):
         ttk.Button(self, text="Add", command=self.add_record).grid(row=4, column=0)
         ttk.Button(self, text="Ticket List", command=lambda: controller.show_window(Toc, self)).grid(row=4, column=1)
 
+        self.show_current_time()
+
+    def show_current_time(self):
+        self.record[1].configure(state='normal')
+        self.record[1].delete(0, 'end')
+        self.record[1].insert(0, datetime.now().strftime('%H:%M'))
+        self.record[1].configure(state='disabled')
+        self.time_update = self.record[1].after(60000, self.show_current_time)
+
     def add_record(self):
+        self.record[1].after_cancel(self.time_update)
+        self.time_update = None
         database.add_record(self.get_record())
         self.controller.show_window(Toc, self)
 
